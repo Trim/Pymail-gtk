@@ -1,0 +1,10 @@
+Package:pymail-gtk
+Version: 0.2.2.1
+Description: Python gui mail client for Hackable:1
+Section: openmoko/applications
+Priority: optional
+Maintainer: adrien@micheldorsaz.ch
+Architecture: armv4t
+Homepage: http://openmoko-fr.org/wiki/index.php/PymailGtk
+Depends: python-email python-gtk2
+Source: 

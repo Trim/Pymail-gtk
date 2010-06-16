@@ -1,0 +1,15 @@
+Pymail-gtk : The Pymail program for gui interface
+
+version 2.2.1 (16/06/2010):
+        Gui
+        * python-elementary code of Pymail replaced by python-gtk2 code (first GUI interface)
+        * Notifier replaced by warning message dialog
+        * Notebook used at place of Pager and Toolbar
+
+        Pymail
+        * sender widget activated
+        * configurator widget coded like a text editor
+
+        General
+        * This version is based on the version 2.1 of Pymail (from sleg, see it on www.opkg.org).
+        * The two first numbers are the numbers of the original Pymail (so, it's the 2.2, because some widget were added to Pymail-gtk and the last number is the version of the gui interface.

@@ -1,0 +1,571 @@
+#!/usr/bin/env python
+
+### Licence of Pymail :
+# Copyright (c) 2009 Cedric DUFOUIL
+# sleg at www.openmoko-fr.org
+#
+# pymail is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pymail is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with python-elementary.  If not, see <http://www.gnu.org/licenses/>.
+
+### Licence of Pymail-gtk
+# Copyright (c) 2010 Adrien DORSAZ
+# Trim at www.openmoko-fr.org
+#
+# pymail-gtk is free software (and is developped from pymail): you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pymail-gtk is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with python-gtk2.  If not, see <http://www.gnu.org/licenses/>.
+
+
+# When Hackable1 will use pyhton 2.6, we could delete this line
+from __future__ import with_statement
+
+import re
+import pygtk
+pygtk.require(`2.0`)
+import gtk
+import ConfigParser, os
+import smtplib
+from imaplib import *
+import email
+from email.MIMEText import MIMEText
+from email.Header import decode_header
+import mimetools
+import base64
+import threading
+import quopri
+
+# The core of the reading mail
+class PymailCore:
+	def __init__(self):
+		self.mailList = False
+		self.config = ConfigParser.ConfigParser()
+		print "Reading config file ~/.pymail-gtk/pymail-gtk.cfg ..."
+		self.config.read('/home/hackable1/.pymail-gtk/pymail-gtk.cfg')
+		print self.config.sections()
+		if len(self.config.sections()) == 0:
+			print "ERROR: No config file found"
+			self.config = ConfigParser.RawConfigParser()
+			self.config.add_section('SERVER1')
+			self.config.set('SERVER1', 'server', '')
+			self.config.set('SERVER1', 'user', '')
+			self.config.set('SERVER1', 'pass', '')
+			self.config.set('SERVER1', 'protocol', '')
+			# Writing our configuration file to 'example.cfg'
+			
+			self.config.add_section('SMTP')
+			self.config.set('SMTP', 'server', '')
+			self.config.set('SMTP', 'email', '')
+			self.config.set('SMTP', 'user', '')
+			self.config.set('SMTP', 'pass', '')
+			
+			with open('/home/hackable1/.pymail-gtk/pymail-gtk.cfg', 'wb') as configfile:
+				self.config.write(configfile)
+			
+
+	def getMailBody(self, mailId, server):
+		_unused, currentMail = server.fetch(mailId, '(BODYSTRUCTURE)') #'(BODY.PEEK[1])')
+		#struct = re.sub('"()', ' ',currentMail[0] ).split()
+		mail = ""
+		### print currentMail[0]
+		body = True
+		
+		isPlain = False
+		
+		for struct in currentMail[0].lower().split():
+			if struct.find('plain') != -1:
+				isPlain = True
+				break
+		if isPlain == False:
+			return "It's an HTML mail, so I cann't display the content"
+		
+		_unused, currentMail = server.fetch(mailId, '(BODY.PEEK[1])')
+		
+		
+		#print email.message_from_string(currentMail[0][1])
+		for line in currentMail[0][1].split('\r\n'):
+			if body:
+				#if line.find('http://') != -1:
+				#line = re.sub(r'(http://[^\\s])', r'<a href="tot"><link>link</></a>', line)#<a href=X><link>links in the text</></a>
+				# todo : wrap lines
+				for subline in line.split():
+					if subline.find('http') == 0:
+						subline = '<a href="tot"><link></link></a>'
+					else:
+						subline = unicode(quopri.decodestring(subline),'iso-8859-1')
+					mail = mail + subline + " "
+				mail = mail + "<br>"
+				#print line
+			if line == "":
+				body = True
+		return mail
+	
+	def getMailHeader(self, mailId, server):
+		self.mailList = True
+		_unused, _currentMail = server.fetch(mailId, '(BODY.PEEK[HEADER.FIELDS (SUBJECT FROM)])')
+		_subjectStr = ""
+		_senderStr = ""
+		
+		for _string in _currentMail[0][1].split('\r\n'):
+			#print " > "+_string
+			if _string.find('Subject') != -1:
+				_subjectStr = _string.split('Subject:')[1].lstrip()
+				#print "Subject: "+_subjectStr
+			if _string.find('From') != -1:
+				_senderStr = _string.split('From:')[1].lstrip()
+				#print "Sender: "+_senderStr
+		
+		# decode Subject
+		subj = decode_header(_subjectStr)
+		if subj[0][1] != None:
+			unicod = unicode(subj[0][0],subj[0][1] )
+		else:
+			unicod = unicode(subj[0][0],'iso-8859-1') # default
+	
+		# decode Sender
+		unicodSend = self.decodeSender(_senderStr)
+		
+		return unicod, unicodSend
+		
+	def serverList(self):
+		return self.config.sections()
+		
+	def decodeSender(self, sendStr):
+		if sendStr.find('"') == 0:
+			#print "Warning encoded sender name"
+			sendStr = sendStr.split('"')[1].lstrip()
+			#print sendStr
+		_send = decode_header(sendStr)
+		if _send[0][1] != None:
+			_unicodSend = unicode(_send[0][0],_send[0][1] )
+		else:
+			_unicodSend = unicode(_send[0][0],'iso-8859-1') # default
+		return _unicodSend
+
+
+class PymailThread ( threading.Thread ):
+	def run ( self ):
+		#print 'Thread'
+		gtk.run()
+
+class PymailGui:
+	# To quit the programm when the physical POWER button is pressed
+	def delete_event(self, widget, event, data=None):
+		print "POWER button pressed"
+		return False
+	# To quit the programm with the POWER button or the 'botbutton' if it's activated
+	def destroy(self, widget, data=None):
+		print "Bye bye !"
+		gtk.main_quit()
+
+	# To cloase mail reader and see the mail list
+	def backToUnreadView(self,widget):
+		self.pager.remove_page(0)
+		self.pager.insert_page(self.scroller,self.mailListLab,0)
+		self.pager.set_current_page(0)
+
+	def dispMailView(self):
+
+		# mailViewBox show one mail when we click on "open"
+		self.mailViewBox=gtk.VBox(False,0)
+		self.mailViewBox.show()
+		self.mailReaderLab=gtk.Label("<span size='large'>Mail Reader</span>")
+		self.mailReaderLab.set_use_markup(True)
+
+		# mailViewBox1 is the top of mailViewBox and show headers and back button
+		self.mailViewBox1=gtk.HBox(False,0)
+		self.mailViewBox.pack_start(self.mailViewBox1,expand=False,fill=False,padding=0)
+		self.mailViewBox1.show()
+
+		# Return Button to quit mail and see again unread mail list
+		self.retbutt=gtk.Button(stock=gtk.STOCK_GO_BACK)
+		self.retbutt.connect("clicked", self.backToUnreadView)
+		self.mailViewBox1.pack_start(self.retbutt,expand=False,fill=False,padding=0)
+		self.retbutt.show()
+
+		# subjectLabel : it's a label within the title is the subject of the mail and 
+		# which is added to the page maiViewBox1
+		self.subjectLabel=gtk.Label()
+		self.subjectLabel.set_line_wrap(True)
+		self.subjectLabel.set_use_markup(True)
+		self.subjectLabel.set_text("<b>From</b>\n<b>Subject :</b>")
+		self.mailViewBox1.pack_start(self.subjectLabel,expand=False,fill=False,padding=0)
+		self.subjectLabel.show()
+
+		# mailView : It's the Scrolled Window where we show the content of the message
+		self.mailView=gtk.ScrolledWindow(None,None)
+		self.mailView.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_ALWAYS)
+		self.mailView.show()
+		self.mailViewBox.pack_start(self.mailView,expand=True,fill=True,padding=0)
+
+		# mailEntry : It's the body of the mail we want to read
+		self.mailEntry = gtk.TextView()
+		self.mailEntry.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+		self.mailEntry.set_editable(False)
+		self.mailEntry.set_justification(gtk.JUSTIFY_LEFT)
+		self.mailView.add_with_viewport(self.mailEntry)
+		self.mailEntry.show()
+
+	def __init__(self):
+		self.core = PymailCore()
+		self.item = 0
+		self.mailArray = []
+		self.refreshUnreadView = True
+		self.switching = False
+
+		# Main window for the all programm
+		self.win=gtk.Window(gtk.WINDOW_TOPLEVEL)
+		self.win.set_title("Pymail-gtk")
+		self.win.connect("delete_event", self.delete_event)
+		self.win.connect("destroy", self.destroy)
+
+		# mainBox is the box which contain the Notebook and "Quit" button
+		self.mainBox=gtk.VBox(False,0)
+		self.win.add(self.mainBox)
+		self.mainBox.show()
+
+		# Pager for the toolbar (in gtk it's a notebook)
+		self.pager=gtk.Notebook()
+			# To add pages to notebook
+					#self.pager.insert_page(self.newMail,None,1)
+					#self.pager.insert_page(self.config,None,2)
+		self.mainBox.add(self.pager)
+		self.pager.show()
+
+		# The Scroller for the mail list page
+		self.scroller=gtk.ScrolledWindow(None,None)
+		self.scroller.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_ALWAYS)
+		self.mailListLab=gtk.Label("<span size='large'>Mail List</span>")
+		self.mailListLab.set_use_markup(True)
+		self.pager.insert_page(self.scroller,self.mailListLab,0)
+		self.scroller.show()
+
+		self.dispMailView()
+		self.pager.set_current_page(0)
+
+		self.unreadBox=gtk.VBox(False,0)
+		self.scroller.add_with_viewport(self.unreadBox)
+		self.unreadBox.set_spacing(0)
+		self.unreadBox.show()
+
+		self.pager.connect('switch-page',self.on_page_switch)
+
+	### Config tool
+		self.confBox=gtk.VBox(False,0)
+		self.confBox.show()
+
+		self.confLab=gtk.Label("<span size='large'>Config</span>")
+		self.confLab.set_use_markup(True)
+		self.pager.insert_page(self.confBox,self.confLab,2)
+
+		self.confScroll=gtk.ScrolledWindow()
+		self.confScroll.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		self.confScroll.show()
+		self.confEntry=gtk.TextView()
+		self.confEntry.set_editable(True)
+		self.confEntry.set_wrap_mode(False)
+		self.confScroll.add(self.confEntry)
+		self.confEntry.show()
+		self.confBox.pack_start(self.confScroll,expand=True,fill=True,padding=0)
+
+		self.confTools=gtk.HBox(True,0)
+		self.confTools.show()
+		self.confBox.pack_start(self.confTools,expand=False,fill=False,padding=0)
+
+		self.confRefresh=gtk.Button(stock=gtk.STOCK_REFRESH)
+		self.confRefresh.connect('clicked',self.getConfig)
+		self.confTools.pack_start(self.confRefresh,expand=True,fill=True,padding=0)
+		self.confRefresh.show()
+
+		self.confSave=gtk.Button(stock=gtk.STOCK_SAVE)
+		self.confSave.connect('clicked',self.setConfig)
+		self.confTools.pack_start(self.confSave,expand=True,fill=True,padding=0)
+		self.confSave.show()
+	### End of Config tool
+
+	### SendMail tool
+		self.sendScroll=gtk.ScrolledWindow()
+		self.sendScroll.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		self.sendScroll.show()
+		self.sendBox=gtk.VBox(False,0)
+		self.sendScroll.add_with_viewport(self.sendBox)
+		self.sendBox.show()
+
+		# Send Button
+		self.sendButt=gtk.Button(" Send ")
+		self.sendButt.connect('clicked',self.sendEmail)
+		self.sendBox.pack_start(self.sendButt,expand=False,fill=True,padding=0)
+		self.sendButt.show()
+
+		# Entry which will receive the receiver
+		self.destLab=gtk.Label("<b>To:</b>")
+		self.destLab.set_use_markup(True)
+		self.destLab.show()
+		
+		self.destFrame=gtk.Frame()
+		self.destFrame.set_label_widget(self.destLab)
+		self.destFrame.show()
+		self.sendBox.pack_start(self.destFrame,expand=False,fill=True,padding=0)
+		
+		self.destEntry=gtk.Entry(0)
+		self.destFrame.add(self.destEntry)
+		self.destEntry.show()
+
+		# Entry which will receive the subject
+		self.subjLab=gtk.Label("<b>Subject:</b>")
+		self.subjLab.set_use_markup(True)
+		self.subjLab.show()
+
+		self.subjFrame=gtk.Frame()
+		self.subjFrame.set_label_widget(self.subjLab)
+		self.subjFrame.show()
+		
+		self.sendBox.pack_start(self.subjFrame,expand=False,fill=True,padding=0)
+		self.subjEntry=gtk.Entry(0)
+		self.subjFrame.add(self.subjEntry)
+		self.subjEntry.show()
+
+		# Mail Content
+		self.coreMail=gtk.TextView()
+		self.coreMail.set_editable(True)
+		self.coreMail.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+		self.coreMail.set_justification(gtk.JUSTIFY_LEFT)
+		self.sendBox.pack_start(self.coreMail,expand=True,fill=True,padding=0)
+		self.coreMail.show()
+		
+		# Tab creating
+		self.mailSender=gtk.Label("<span size='large'>Mail Sender</span>")
+		self.mailSender.set_use_markup(True)
+		self.pager.insert_page(self.sendScroll,self.mailSender,1)
+
+	### End of SendMail tool
+
+		# botbutt should quite the application, but with Hackable1, it's not needed (the POWER button is used).
+		#self.botbutt=gtk.Button(stock=gtk.STOCK_QUIT)
+		#self.botbutt.connect("clicked", self.destroy)
+		#self.mainBox.pack_start(self.botbutt,False,True,0)
+		#self.botbutt.show()
+
+	### Bottom tool bar
+		self.unreadMailTab()
+		self.win.show()
+
+	def on_page_switch(self,notebook,page,page_num):
+		if self.switching==False:
+			if page_num==0:
+				self.switching=True
+				self.unreadMailTab()
+			elif page_num==1:
+				self.switching=True
+				self.newMailTab()
+			elif page_num==2:
+				self.switching=True
+				self.getConfig(0)
+			else:
+				self.switching=True
+			self.switching=False
+
+	def sendEmail(self, button):
+		dest = self.destEntry.get_text().split('<br>')[0]
+		subj = self.subjEntry.get_text().split('<br>')[0]
+		buffer = self.coreMail.get_buffer()
+		start = buffer.get_start_iter()
+		end = buffer.get_end_iter()
+		body = buffer.get_text(start,end,include_hidden_chars=True)
+		body = re.sub('<br>', '\r\n', body)
+		body = re.sub('<tab>', '\t', body)
+		print "TODO: Send Email " + subj + " To " + dest
+		print ">> " + body
+		server = smtplib.SMTP(self.sendServ)
+		server.set_debuglevel(False)
+		
+		server.login(self.sendUser, self.sendPass)
+		# Add the From: and To: headers at the start!
+		msg = "From: "+self.sendMail+"\r\nTo: "+dest+"\r\nSubject: "+subj+"\r\n\r\n"+body
+
+		ret = server.sendmail(self.sendMail, dest, msg )
+		server.quit()
+		self.error(gtk.MESSAGE_INFO,"E-mail sent!")
+		
+		self.destEntry.set_text("")
+		self.subjEntry.set_text("")
+		buffer.set_text("")
+
+
+	def getConfig(self,unused):
+		buffer=self.confEntry.get_buffer()
+		text=""
+
+		config = open("/home/hackable1/.pymail-gtk/pymail-gtk.cfg","r")
+		while 1:
+			line = config.readline()
+			if not line:
+				break
+			else:
+				text=text+line
+			pass # do something
+		buffer.set_text(text)
+		config.close()
+
+	def setConfig(self,unused):
+		buffer=self.confEntry.get_buffer()
+		start = buffer.get_start_iter()
+		end = buffer.get_end_iter()
+		text = buffer.get_text(start,end,include_hidden_chars=True)
+		config=open("/home/hackable1/.pymail-gtk/pymail-gtk.cfg","w")
+		config.write(text)
+		config.close()
+		#To refresh mail receiver
+		# I don't know how to clear unreadBox, so I've desactived this part and ask to relaunch the programme
+		self.error(gtk.MESSAGE_INFO,"To activate new configuration, restart Pymail-gtk, please.")
+		#self.scroller.remove(self.unreadBox)
+		#del(self.unreadBox)
+		#self.unreadBox=gtk.VBox(False,0)
+		#self.scroller.add_with_viewport(self.unreadBox)
+		#self.unreadBox.set_spacing(0)
+		#self.unreadBox.show()
+		#self.core = PymailCore()
+		#self.item = 0
+		#self.mailArray = []
+		#self.refreshUnreadView = True
+
+	# Check if a SMTP server is configured. If not, it blocks the Entries
+	def newMailTab(self):
+		if self.core.config.has_section('SMTP') == False or self.core.config.get('SMTP', 'server') == "":
+			self.destEntry.set_text(" Wrong config file ")
+			self.subjEntry.set_text(" check SMTP config ")
+			self.coreMail.set_editable(False)
+			self.destEntry.set_editable(False)
+			self.subjEntry.set_editable(False)
+
+	# Get Mail and display it in the mail reader
+	def readMail(self, target, mailID):
+		print "Todo: Get Mail "+ self.mailArray[mailID][0]
+		#+ " from " + unicode(self.mailArray[mailID][2],'iso-8859-1') + " : " + unicode(self.mailArray[mailID][3] ,'iso-8859-1')
+		mail = self.core.getMailBody(self.mailArray[mailID][0], self.mailArray[mailID][1])
+		mail = re.sub('<br>', '\r\n', mail)
+		buffer=self.mailEntry.get_buffer()
+		buffer.set_text(mail)
+		# To show mail reader at place of mail list:
+		self.pager.remove_page(0)
+		self.pager.insert_page(self.mailViewBox,self.mailReaderLab,0)
+		self.pager.set_current_page(0)
+		self.subjectLabel.set_text("From "+self.mailArray[mailID][2]+"\nSubject: "+self.mailArray[mailID][3])
+		self.subjectLabel.set_use_markup(True)
+
+	# This function make a list of all unread mails in a server and display it in readBox of the mail list
+	def displayUnread(self, unreadMails, box, server, label, nbr):
+		#self.botbutt.label_set("Quit")
+		#self.botbutt._callback_add('clicked',self.destroy)
+		for mail in unreadMails[0].split():
+                        nbr = nbr - 1
+                        if nbr <= 0:
+                            return
+			subjectStr, senderStr = self.core.getMailHeader(mail, server)
+			# The boxes which contain a button and a label
+			hbox=gtk.HBox(False,0)
+			hbox.show()
+			# Each E-mail has a button to open it and his label
+			butt = gtk.Button(stock=gtk.STOCK_OPEN)
+			hbox.pack_start(butt,expand=False,fill=False,padding=0)
+			butt.show()
+			# Replacing unusable caracter because of markup
+			senderStr= re.sub('<', '(', senderStr)
+			senderStr= re.sub('>', ')', senderStr)
+			senderStr= re.sub('@', '_at_', senderStr)
+			# Displaying Expeditor and Subject
+			mailLab=gtk.Label("<span size='small'>"+senderStr+"</span>\n<b>"+subjectStr+"</b>")
+			mailLab.set_justify(gtk.JUSTIFY_LEFT)
+			mailLab.set_line_wrap(True)
+			mailLab.set_use_markup(True)
+			hbox.pack_start(mailLab,expand=False,fill=False,padding=0)
+			mailLab.show()
+			# Add each button to self.unreadMailBox to do the list
+			box.pack_start(hbox,expand=False,fill=True,padding=0)
+			self.mailArray.append([mail, server, senderStr, subjectStr])
+			butt.connect('clicked', self.readMail, self.item)
+			self.item = self.item + 1
+
+	def error(self,msg_type,msg):
+		messagedialog = gtk.MessageDialog(parent=None, flags=0, type=msg_type, buttons=gtk.BUTTONS_OK, message_format=msg)
+		messagedialog.run()
+		messagedialog.destroy()
+
+	# This function test the configuration file and launch the unread mail list maker (displayUnread)
+	def unreadMailTab(self):
+		if self.refreshUnreadView == True:
+			self.refreshUnreadView = False
+			for mailConfig in self.core.serverList():
+				if mailConfig == 'SMTP':
+					# If it's an SMTP server, it put values in global variables for sendEmail
+					# /!\ So it uses only ONE server
+					self.sendServ=self.core.config.get(mailConfig,'server')
+					self.sendMail=self.core.config.get(mailConfig,'email')
+					self.sendUser=self.core.config.get(mailConfig,'user')
+					self.sendPass=self.core.config.get(mailConfig,'pass')
+					continue
+				serverurl = self.core.config.get(mailConfig, 'server')
+				if serverurl == "":
+					self.error(gtk.MESSAGE_WARNING,"Wrong configuration")
+					continue
+				username = self.core.config.get(mailConfig, 'user')
+				password = self.core.config.get(mailConfig, 'pass')
+				protocol = self.core.config.get(mailConfig, 'protocol')
+				# print "Trying to connect to server "+serverurl+" using login "+username
+				if protocol == "IMAPSSL":
+					server = IMAP4_SSL(serverurl)
+				elif protocol == "IMAP":
+					server = IMAP4(serverurl)
+				else:
+					print "WARNING: Protocol "+ protocol + " not supported"
+					self.error(gtk.MESSAGE_WARNING,"Wrong configuration")
+					continue
+				server.login(username, password)
+			
+				mboxes = server.list()[1]
+			
+				server.select("INBOX")
+			
+				unused, unreadMails = server.search(None, "(UNSEEN)")
+			
+				i = len(unreadMails[0].split())
+				### print mailConfig+": %d new messages" % i
+			
+				# Display Info
+				fr = gtk.Frame(" == "+mailConfig + " ==")
+				self.unreadBox.pack_start(fr,expand=False,fill=False,padding=0)
+				fr.show()
+                                
+				unReadNumb = gtk.Label("<b>%d unread messages</b>" % i)
+				unReadNumb.set_use_markup(True)
+				unReadNumb.set_justify(gtk.JUSTIFY_LEFT)
+				fr.add(unReadNumb)
+				unReadNumb.show()
+				
+				self.displayUnread(unreadMails, self.unreadBox, server, fr, 50)
+## End of PymailGui class
+
+	def main(self):
+		gtk.main()
+
+if __name__ == "__main__":
+	gui=PymailGui()
+	gui.main()

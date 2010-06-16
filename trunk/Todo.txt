@@ -1,0 +1,11 @@
+Pymail-gtk : Pymail version for gui interface
+
+version 2.2.1(16/06/2010):
+        Gui
+        * Need some feedback to know how to improve the interface
+        Pymail
+        * The configuration should use forms to edit the configuration file
+        * The mail sender should use more than only one smtp server and should propose which the user want to use
+        * The http link should be place between the <a> XML balise or something else...
+        * Found a resolution of html mail reading (using python-mozembed ?)
+        * Print Warning message if there is no Net connection
