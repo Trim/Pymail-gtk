@@ -7,4 +7,4 @@ Maintainer: adrien@micheldorsaz.ch
 Architecture: armv4t
 Homepage: http://openmoko-fr.org/wiki/index.php/PymailGtk
 Depends: python-email python-gtk2
-Source: 
+Source: http://github.com/Trim/Pymail-gtk 
