@@ -52,33 +52,41 @@ import mimetools
 import base64
 import threading
 import quopri
+# To verify if an Internet connection is aviable, we will use ping from os
+import os
 
 # The core of the reading mail
 class PymailCore:
 	def __init__(self):
-		self.mailList = False
-		self.config = ConfigParser.ConfigParser()
-		print "Reading config file ~/.pymail-gtk/pymail-gtk.cfg ..."
-		self.config.read('/home/hackable1/.pymail-gtk/pymail-gtk.cfg')
-		print self.config.sections()
-		if len(self.config.sections()) == 0:
-			print "ERROR: No config file found"
-			self.config = ConfigParser.RawConfigParser()
-			self.config.add_section('SERVER1')
-			self.config.set('SERVER1', 'server', '')
-			self.config.set('SERVER1', 'user', '')
-			self.config.set('SERVER1', 'pass', '')
-			self.config.set('SERVER1', 'protocol', '')
-			# Writing our configuration file to 'example.cfg'
+                self.connected=1
+                if os.system("ping www.google.com -c 2 > /dev/null"):
+                        print "Internet connection not aviable"
+                        self.connected=0
+                else:
+                        print "Internet connection aviable"
+		        self.mailList = False
+		        self.config = ConfigParser.ConfigParser()
+		        print "Reading config file ~/.pymail-gtk/pymail-gtk.cfg ..."
+        		self.config.read('/home/hackable1/.pymail-gtk/pymail-gtk.cfg')
+        		print self.config.sections()
+	        	if len(self.config.sections()) == 0:
+		        	print "ERROR: No config file found"
+        			self.config = ConfigParser.RawConfigParser()
+        			self.config.add_section('SERVER1')
+        			self.config.set('SERVER1', 'server', '')
+        			self.config.set('SERVER1', 'user', '')
+	        		self.config.set('SERVER1', 'pass', '')
+		        	self.config.set('SERVER1', 'protocol', '')
+        			# Writing our configuration file to 'example.cfg'
 			
-			self.config.add_section('SMTP')
-			self.config.set('SMTP', 'server', '')
-			self.config.set('SMTP', 'email', '')
-			self.config.set('SMTP', 'user', '')
-			self.config.set('SMTP', 'pass', '')
+	        		self.config.add_section('SMTP')
+        			self.config.set('SMTP', 'server', '')
+	        		self.config.set('SMTP', 'email', '')
+        			self.config.set('SMTP', 'user', '')
+		        	self.config.set('SMTP', 'pass', '')
 			
-			with open('/home/hackable1/.pymail-gtk/pymail-gtk.cfg', 'wb') as configfile:
-				self.config.write(configfile)
+	        		with open('/home/hackable1/.pymail-gtk/pymail-gtk.cfg', 'wb') as configfile:
+        				self.config.write(configfile)
 			
 
 	def getMailBody(self, mailId, server):
@@ -226,6 +234,9 @@ class PymailGui:
 
 	def __init__(self):
 		self.core = PymailCore()
+                if(self.core.connected==0):
+                        self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
+                        self.destroy
 		self.item = 0
 		self.mailArray = []
 		self.refreshUnreadView = True
@@ -490,7 +501,12 @@ class PymailGui:
 			# Replacing unusable caracter because of markup
 			senderStr= re.sub('<', '(', senderStr)
 			senderStr= re.sub('>', ')', senderStr)
+                        senderStr= re.sub('&','and',senderStr)
 			senderStr= re.sub('@', '_at_', senderStr)
+                        subjectStr= re.sub('<', '(', subjectStr)
+                        subjectStr= re.sub('>', '>', subjectStr)
+                        subjectStr= re.sub('&','and',subjectStr)
+                        subjectStr= re.sub('@', '_at_', subjectStr)
 			# Displaying Expeditor and Subject
 			mailLab=gtk.Label("<span size='small'>"+senderStr+"</span>\n<b>"+subjectStr+"</b>")
 			mailLab.set_justify(gtk.JUSTIFY_LEFT)
