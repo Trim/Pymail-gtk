@@ -21,9 +21,9 @@ uninstall:
 	$(RM) $(DESTDIR)/usr/bin/$(BIN)
 	$(RM) $(DESTDIR)/usr/share/pixmaps/$(BIN)
 	$(RM) $(DESTDIR)/usr/share/applications/$(BIN)
-	$(RM) $(DESTDIR)/home/hackable1/.$(BIN)
+	#$(RM) $(DESTDIR)/home/hackable1/.$(BIN)/$(BIN)
 
-	rmdir $(DESTDIR)/home/hackable1/.$(BIN)
+	#rmdir $(DESTDIR)/home/hackable1/.$(BIN)
 	rmdir $(DESTDIR)/usr/share/$(BIN)
 
 copy:
