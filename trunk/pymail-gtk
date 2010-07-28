@@ -387,10 +387,10 @@ class PymailGui:
 	### End of SendMail tool
 
 		# botbutt should quite the application, but with Hackable1, it's not needed (the POWER button is used).
-		#self.botbutt=gtk.Button(stock=gtk.STOCK_QUIT)
-		#self.botbutt.connect("clicked", self.destroy)
-		#self.mainBox.pack_start(self.botbutt,False,True,0)
-		#self.botbutt.show()
+		self.botbutt=gtk.Button(stock=gtk.STOCK_QUIT)
+		self.botbutt.connect("clicked", self.destroy)
+		self.mainBox.pack_start(self.botbutt,False,True,0)
+		self.botbutt.show()
 
 	### Bottom tool bar
 		self.unreadMailTab()
