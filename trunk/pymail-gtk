@@ -61,7 +61,7 @@ homedir=os.environ['HOME']
 #AD/ Path of the config file
 confdir=str(homedir)+'/.pymail-gtk'
 #AD/ Path and Name of the config file
-conffile=str(confdir)+'pymail-gtk.cfg'
+conffile=str(confdir)+'/pymail-gtk.cfg'
 
 # The core of the reading mail
 class PymailCore:
@@ -75,12 +75,12 @@ class PymailCore:
 						print "Internet connection aviable"
 				self.mailList = False
 				#AD/ Config file checker
-				while os.path.exists(dicodir) == False:
+				while os.path.exists(confdir) == False:
 					print("No config file found.\nI create your personal forlder.")
 					#AD/ Configuration initialisation
 					print("I will create an example config file for you.")
 					os.mkdir(str(confdir))
-					shutil.copyfile('/usr/share/pymail-gtk/example.conf', str(conffile))
+					shutil.copyfile('/usr/share/pymail-gtk/example.cfg', str(conffile))
 
 				self.config = ConfigParser.ConfigParser()
 				print "Reading config file "+str(conffile)+" ..."
@@ -251,9 +251,9 @@ class PymailGui:
 
 	def __init__(self):
 		self.core = PymailCore()
-			if(self.core.connected==0):
-					self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
-					self.destroy
+		if(self.core.connected==0):
+			self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
+			self.destroy
 		self.item = 0
 		self.mailArray = []
 		self.refreshUnreadView = True
@@ -504,9 +504,9 @@ class PymailGui:
 		#self.botbutt.label_set("Quit")
 		#self.botbutt._callback_add('clicked',self.destroy)
 		for mail in unreadMails[0].split():
-						nbr = nbr - 1
-						if nbr <= 0:
-							return
+                        nbr = nbr - 1
+                        if nbr <= 0:
+                            return
 			subjectStr, senderStr = self.core.getMailHeader(mail, server)
 			# The boxes which contain a button and a label
 			hbox=gtk.HBox(False,0)
@@ -518,12 +518,7 @@ class PymailGui:
 			# Replacing unusable caracter because of markup
 			senderStr= re.sub('<', '(', senderStr)
 			senderStr= re.sub('>', ')', senderStr)
-						senderStr= re.sub('&','and',senderStr)
 			senderStr= re.sub('@', '_at_', senderStr)
-						subjectStr= re.sub('<', '(', subjectStr)
-						subjectStr= re.sub('>', '>', subjectStr)
-						subjectStr= re.sub('&','and',subjectStr)
-						subjectStr= re.sub('@', '_at_', subjectStr)
 			# Displaying Expeditor and Subject
 			mailLab=gtk.Label("<span size='small'>"+senderStr+"</span>\n<b>"+subjectStr+"</b>")
 			mailLab.set_justify(gtk.JUSTIFY_LEFT)
