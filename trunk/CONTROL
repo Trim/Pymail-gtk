@@ -1,5 +1,5 @@
 Package:pymail-gtk
-Version: 0.2.2.1
+Version: 0.2.2.2
 Description: Python gui mail client for Hackable:1
 Section: openmoko/applications
 Priority: optional
