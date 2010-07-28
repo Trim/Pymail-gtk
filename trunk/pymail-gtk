@@ -39,7 +39,7 @@
 from __future__ import with_statement
 
 import re
-import pygtk
+import pygtk		#AD/ To do the graphical interface
 pygtk.require(`2.0`)
 import gtk
 import ConfigParser, os
@@ -52,41 +52,58 @@ import mimetools
 import base64
 import threading
 import quopri
-# To verify if an Internet connection is aviable, we will use ping from os
-import os
+import os			#AD/ To use ping and to manage files
+import shutil		#AD/ To copy files
+import string		#AD/ To treat strings
+
+#AD/ Path of the home
+homedir=os.environ['HOME']
+#AD/ Path of the config file
+confdir=str(homedir)+'/.pymail-gtk'
+#AD/ Path and Name of the config file
+conffile=str(confdir)+'pymail-gtk.cfg'
 
 # The core of the reading mail
 class PymailCore:
 	def __init__(self):
-                self.connected=1
-                if os.system("ping www.google.com -c 2 > /dev/null"):
-                        print "Internet connection not aviable"
-                        self.connected=0
-                else:
-                        print "Internet connection aviable"
-		        self.mailList = False
-		        self.config = ConfigParser.ConfigParser()
-		        print "Reading config file ~/.pymail-gtk/pymail-gtk.cfg ..."
-        		self.config.read('/home/hackable1/.pymail-gtk/pymail-gtk.cfg')
-        		print self.config.sections()
-	        	if len(self.config.sections()) == 0:
-		        	print "ERROR: No config file found"
-        			self.config = ConfigParser.RawConfigParser()
-        			self.config.add_section('SERVER1')
-        			self.config.set('SERVER1', 'server', '')
-        			self.config.set('SERVER1', 'user', '')
-	        		self.config.set('SERVER1', 'pass', '')
-		        	self.config.set('SERVER1', 'protocol', '')
-        			# Writing our configuration file to 'example.cfg'
-			
-	        		self.config.add_section('SMTP')
-        			self.config.set('SMTP', 'server', '')
-	        		self.config.set('SMTP', 'email', '')
-        			self.config.set('SMTP', 'user', '')
-		        	self.config.set('SMTP', 'pass', '')
-			
-	        		with open('/home/hackable1/.pymail-gtk/pymail-gtk.cfg', 'wb') as configfile:
-        				self.config.write(configfile)
+				#AD/ Internet connection checker
+				self.connected=1
+				if os.system("ping www.google.com -c 2 > /dev/null"):
+						print "Internet connection not aviable"
+						self.connected=0
+				else:
+						print "Internet connection aviable"
+				self.mailList = False
+				#AD/ Config file checker
+				while os.path.exists(dicodir) == False:
+					print("No config file found.\nI create your personal forlder.")
+					#AD/ Configuration initialisation
+					print("I will create an example config file for you.")
+					os.mkdir(str(confdir))
+					shutil.copyfile('/usr/share/pymail-gtk/example.conf', str(conffile))
+
+				self.config = ConfigParser.ConfigParser()
+				print "Reading config file "+str(conffile)+" ..."
+				self.config.read(str(conffile))
+				print self.config.sections()
+				#AD/ If the config is empty we normally create it, but we make no more like that.
+				#if len(self.config.sections()) == 0:
+					#print "No config file found\nCopying the config example in the home and using it."
+					#AD/ Normally we will no more use it :
+					#self.config = ConfigParser.RawConfigParser()
+					#self.config.add_section('SERVER1')
+					#self.config.set('SERVER1', 'server', '')
+					#self.config.set('SERVER1', 'user', '')
+					#self.config.set('SERVER1', 'pass', '')
+					#self.config.set('SERVER1', 'protocol', '')
+					# Writing our configuration file to 'example.cfg'
+					#self.config.add_section('SMTP')
+					#self.config.set('SMTP', 'server', '')
+					#self.config.set('SMTP', 'email', '')
+					#self.config.set('SMTP', 'user', '')
+					#self.config.set('SMTP', 'pass', '')
+					#with open(str(conffile), 'wb') as configfile:
+					#	self.config.write(configfile)
 			
 
 	def getMailBody(self, mailId, server):
@@ -234,9 +251,9 @@ class PymailGui:
 
 	def __init__(self):
 		self.core = PymailCore()
-                if(self.core.connected==0):
-                        self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
-                        self.destroy
+			if(self.core.connected==0):
+					self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
+					self.destroy
 		self.item = 0
 		self.mailArray = []
 		self.refreshUnreadView = True
@@ -425,7 +442,7 @@ class PymailGui:
 		buffer=self.confEntry.get_buffer()
 		text=""
 
-		config = open("/home/hackable1/.pymail-gtk/pymail-gtk.cfg","r")
+		config = open(str(conffile),"r")
 		while 1:
 			line = config.readline()
 			if not line:
@@ -441,7 +458,7 @@ class PymailGui:
 		start = buffer.get_start_iter()
 		end = buffer.get_end_iter()
 		text = buffer.get_text(start,end,include_hidden_chars=True)
-		config=open("/home/hackable1/.pymail-gtk/pymail-gtk.cfg","w")
+		config=open(str(conffile),"w")
 		config.write(text)
 		config.close()
 		#To refresh mail receiver
@@ -487,9 +504,9 @@ class PymailGui:
 		#self.botbutt.label_set("Quit")
 		#self.botbutt._callback_add('clicked',self.destroy)
 		for mail in unreadMails[0].split():
-                        nbr = nbr - 1
-                        if nbr <= 0:
-                            return
+						nbr = nbr - 1
+						if nbr <= 0:
+							return
 			subjectStr, senderStr = self.core.getMailHeader(mail, server)
 			# The boxes which contain a button and a label
 			hbox=gtk.HBox(False,0)
@@ -501,12 +518,12 @@ class PymailGui:
 			# Replacing unusable caracter because of markup
 			senderStr= re.sub('<', '(', senderStr)
 			senderStr= re.sub('>', ')', senderStr)
-                        senderStr= re.sub('&','and',senderStr)
+						senderStr= re.sub('&','and',senderStr)
 			senderStr= re.sub('@', '_at_', senderStr)
-                        subjectStr= re.sub('<', '(', subjectStr)
-                        subjectStr= re.sub('>', '>', subjectStr)
-                        subjectStr= re.sub('&','and',subjectStr)
-                        subjectStr= re.sub('@', '_at_', subjectStr)
+						subjectStr= re.sub('<', '(', subjectStr)
+						subjectStr= re.sub('>', '>', subjectStr)
+						subjectStr= re.sub('&','and',subjectStr)
+						subjectStr= re.sub('@', '_at_', subjectStr)
 			# Displaying Expeditor and Subject
 			mailLab=gtk.Label("<span size='small'>"+senderStr+"</span>\n<b>"+subjectStr+"</b>")
 			mailLab.set_justify(gtk.JUSTIFY_LEFT)
@@ -569,7 +586,7 @@ class PymailGui:
 				fr = gtk.Frame(" == "+mailConfig + " ==")
 				self.unreadBox.pack_start(fr,expand=False,fill=False,padding=0)
 				fr.show()
-                                
+								
 				unReadNumb = gtk.Label("<b>%d unread messages</b>" % i)
 				unReadNumb.set_use_markup(True)
 				unReadNumb.set_justify(gtk.JUSTIFY_LEFT)
