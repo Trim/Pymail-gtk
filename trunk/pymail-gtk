@@ -66,44 +66,26 @@ conffile=str(confdir)+'/pymail-gtk.cfg'
 # The core of the reading mail
 class PymailCore:
 	def __init__(self):
-				#AD/ Internet connection checker
-				self.connected=1
-				if os.system("ping www.google.com -c 2 > /dev/null"):
-						print "Internet connection not aviable"
-						self.connected=0
-				else:
-						print "Internet connection aviable"
-				self.mailList = False
-				#AD/ Config file checker
-				while os.path.exists(confdir) == False:
-					print("No config file found.\nI create your personal forlder.")
-					#AD/ Configuration initialisation
-					print("I will create an example config file for you.")
-					os.mkdir(str(confdir))
-					shutil.copyfile('/usr/share/pymail-gtk/example.cfg', str(conffile))
+		#AD/ Internet connection checker
+		self.connected=1
+		if os.system("ping www.google.com -c 2 > /dev/null"):
+				print "Internet connection not available"
+				self.connected=0
+		else:
+				print "Internet connection available"
+		self.mailList = False
+		#AD/ Config file checker
+		while os.path.exists(confdir) == False:
+			print("No config file found.\nI create your personal forlder.")
+			#AD/ Configuration initialisation
+			print("I will create an example config file for you.")
+			os.mkdir(str(confdir))
+			shutil.copyfile('/usr/share/pymail-gtk/example.cfg', str(conffile))
 
-				self.config = ConfigParser.ConfigParser()
-				print "Reading config file "+str(conffile)+" ..."
-				self.config.read(str(conffile))
-				print self.config.sections()
-				#AD/ If the config is empty we normally create it, but we make no more like that.
-				#if len(self.config.sections()) == 0:
-					#print "No config file found\nCopying the config example in the home and using it."
-					#AD/ Normally we will no more use it :
-					#self.config = ConfigParser.RawConfigParser()
-					#self.config.add_section('SERVER1')
-					#self.config.set('SERVER1', 'server', '')
-					#self.config.set('SERVER1', 'user', '')
-					#self.config.set('SERVER1', 'pass', '')
-					#self.config.set('SERVER1', 'protocol', '')
-					# Writing our configuration file to 'example.cfg'
-					#self.config.add_section('SMTP')
-					#self.config.set('SMTP', 'server', '')
-					#self.config.set('SMTP', 'email', '')
-					#self.config.set('SMTP', 'user', '')
-					#self.config.set('SMTP', 'pass', '')
-					#with open(str(conffile), 'wb') as configfile:
-					#	self.config.write(configfile)
+		self.config = ConfigParser.ConfigParser()
+		print "Reading config file "+str(conffile)+" ..."
+		self.config.read(str(conffile))
+		print self.config.sections()
 			
 
 	def getMailBody(self, mailId, server):
@@ -112,32 +94,26 @@ class PymailCore:
 		mail = ""
 		### print currentMail[0]
 		body = True
-		
+		#AD/ We check if it's a plain text mail, in the goal to add \n
 		isPlain = False
 		
 		for struct in currentMail[0].lower().split():
 			if struct.find('plain') != -1:
 				isPlain = True
 				break
-		if isPlain == False:
-			return "It's an HTML mail, so I cann't display the content"
-		
+			
 		_unused, currentMail = server.fetch(mailId, '(BODY.PEEK[1])')
 		
 		
 		#print email.message_from_string(currentMail[0][1])
 		for line in currentMail[0][1].split('\r\n'):
 			if body:
-				#if line.find('http://') != -1:
-				#line = re.sub(r'(http://[^\\s])', r'<a href="tot"><link>link</></a>', line)#<a href=X><link>links in the text</></a>
-				# todo : wrap lines
 				for subline in line.split():
-					if subline.find('http') == 0:
-						subline = '<a href="tot"><link></link></a>'
-					else:
-						subline = unicode(quopri.decodestring(subline),'iso-8859-1')
+					#Translate each line of mail in ISO-8859-1
+					subline = unicode(quopri.decodestring(subline),'iso-8859-1')
 					mail = mail + subline + " "
-				mail = mail + "<br>"
+				if isPlain==True:
+					mail = mail + "\n"
 				#print line
 			if line == "":
 				body = True
@@ -253,7 +229,7 @@ class PymailGui:
 		self.core = PymailCore()
 		if(self.core.connected==0):
 			self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
-			self.destroy
+			self.destroy()
 		self.item = 0
 		self.mailArray = []
 		self.refreshUnreadView = True
@@ -487,9 +463,57 @@ class PymailGui:
 	# Get Mail and display it in the mail reader
 	def readMail(self, target, mailID):
 		print "Todo: Get Mail "+ self.mailArray[mailID][0]
+
 		#+ " from " + unicode(self.mailArray[mailID][2],'iso-8859-1') + " : " + unicode(self.mailArray[mailID][3] ,'iso-8859-1')
 		mail = self.core.getMailBody(self.mailArray[mailID][0], self.mailArray[mailID][1])
-		mail = re.sub('<br>', '\r\n', mail)
+
+		#AD/ Correct the encodage :
+		mail=re.sub(r'&eacute;','e',mail)
+		mail=re.sub(r'&egrave;','e',mail)
+		mail=re.sub(r'&agrave;','a',mail)
+		mail=re.sub(r'&ccedil;','c',mail)
+		mail=re.sub(r'&nbsp;',' ',mail)
+		mail=re.sub(r'&lt;','<',mail)
+		mail=re.sub(r'&gt;','>',mail)
+		mail=re.sub(r'&amp;','&',mail)
+		mail=re.sub(r'&uuml;','u',mail)
+		mail=re.sub(r'&auml;','a',mail)
+		mail=re.sub(r'&ouml;','o',mail)
+
+		#AD/ Replace HTML Balise by Simple Text :
+		
+		#AD/ Delete <a> and show link
+		re.I
+		mail=re.sub(r'<a[^>]*(href=")', '[Lien : ', mail)
+		#AD/ Check before if there is an image in the link (and in the mail)
+		mail=re.sub(r'<img[^>]*(src=")', '[Image : ', mail)
+		mail=re.sub(r'png"[^>]*>', 'png ]', mail)
+		mail=re.sub(r'jpg"[^>]*>', 'jpg ]', mail)
+		mail=re.sub(r'jpeg"[^>]*>', 'jpeg ]', mail)
+		mail=re.sub(r'bmp"[^>]*>', 'bmp ]', mail)
+		mail=re.sub(r'gif"[^>]*>', 'gif ]', mail)
+		mail=re.sub(r'">\[',' [',mail)
+		mail=re.sub(r'</a>',' ]',mail)
+		mail=re.sub(r'"(\s|>)[^<]*</a>', ' ]', mail)
+		#AD/ Create tables :
+		mail=re.sub(r'<table[^>]*>','\n[ Begin of table ]',mail)
+		mail=re.sub(r'<t(r|body|head|foot)[^>]*>','\n_______\n',mail)
+		mail=re.sub(r'<t(d|h)[^>]*>','| ',mail)
+		mail=re.sub(r'</t(d|h)>',' |',mail)
+		mail=re.sub(r'</t(r|body|head|foot)>','\n_______',mail)
+		mail=re.sub(r'</table>','[ End of table ]\n',mail)
+		#AD/ Replace <li> structure by a simple list with '-'
+		mail=re.sub(r'<li[^>]*>', '\t-  ',mail)
+		mail=re.sub(r'</li>', '\n', mail)
+		#AD/ Make lines
+		mail=re.sub(r'<hr[^>]*>','----------',mail)
+		#AD/ Replace <br> and <br/> by \n
+		mail=re.sub(r'<(br)(>|[^>]*)>', '\n', mail)
+		#AD/ Delete all other begin balise
+		mail=re.sub(r'<[^>,^/]*>', '', mail)
+		#AD/ Delete paragraph and title end by double breakline
+		mail=re.sub(r'</(p|h1|h2|h3|h4|h5|h6)>', '\n\n', mail)
+		mail=re.sub(r'</(a|html|li|u|i|ul|b|title|head|body|strong|span|div)>', ' ', mail)
 		buffer=self.mailEntry.get_buffer()
 		buffer.set_text(mail)
 		# To show mail reader at place of mail list:
