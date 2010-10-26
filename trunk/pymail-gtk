@@ -55,7 +55,7 @@ import quopri
 import os			#AD/ To use ping and to manage files
 import shutil		#AD/ To copy files
 import string		#AD/ To treat strings
-import gtkmozembed  #AD/ To view html mail
+#import gtkmozembed  #AD/ To view html mail
 
 #AD/ Path of the home
 homedir=os.environ['HOME']
@@ -67,14 +67,14 @@ conffile=str(confdir)+'/pymail-gtk.cfg'
 # The core of the reading mail
 class PymailCore:
 	def __init__(self):
-		#AD/ Internet connection checker
-		self.connected=1
-		if os.system("ping www.google.com -c 2 > /dev/null"):
-				print "Internet connection not available"
-				self.connected=0
-		else:
-				print "Internet connection available"
-		self.mailList = False
+		#AD/ Internet connection checker : disabled because it's too long and not very usefull (user must be able to modify preferences even if there's no network
+		#self.connected=1
+		#if os.system("ping www.google.com -c 2 -W 2 > /dev/null"):
+		#		print "Internet connection not available"
+		#		self.connected=0
+		#else:
+		#		print "Internet connection available"
+		#self.mailList = False
 		#AD/ Config file checker
 		while os.path.exists(confdir) == False:
 			print("No config file found.\nI create your personal forlder.")
@@ -213,14 +213,27 @@ class PymailGui:
 		self.subjectLabel.show()
 
 		# AD/ In this page, you can see also the mail body, but it's not coded here : this last part of the page is placed in the readmail() method, because it need to load the mail which is specific to each mail viewing.
+		# AD/ For future version with Mozembed
+		#self.mailEntry=gtkmozembed.MozEmbed()
+		#self.mailViewBox.pack_start(self.mailEntry,expand=True,fill=True,padding=0)
+		#self.mailEntry.show()
+		##self.mailEntry.open_stream('file:///','text/html')
+		# AD/ For simple text version
+		self.mailEntry = gtk.TextView()
+		self.mailEntry.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+		self.mailEntry.set_editable(False)
+		self.mailEntry.set_justification(gtk.JUSTIFY_LEFT)
+		self.mailView.add_with_viewport(self.mailEntry)
+		self.mailEntry.show()
 
 
 
 	def __init__(self):
 		self.core = PymailCore()
-		if(self.core.connected==0):
-			self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
-			self.destroy()
+		# Internet checker disabled
+		#if(self.core.connected==0):
+		#	self.error(gtk.MESSAGE_WARNING,"Pymail hasn't found Internet connection.\nThe program will be stopped")
+		#	self.destroy()
 		self.item = 0
 		self.mailArray = []
 		self.refreshUnreadView = True
@@ -253,6 +266,7 @@ class PymailGui:
 		self.pager.insert_page(self.scroller,self.mailListLab,0)
 		self.scroller.show()
 
+		# Mail list page creating
 		self.dispMailView()
 		self.pager.set_current_page(0)
 
@@ -271,36 +285,42 @@ class PymailGui:
 		self.confLab.set_use_markup(True)
 		self.pager.insert_page(self.confBox,self.confLab,2)
 
+		self.confScroll=gtk.ScrolledWindow()
+		self.confScroll.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		self.confScroll.show()
+		self.confEntry=gtk.TextView()
+		self.confEntry.set_editable(True)
+		self.confEntry.set_wrap_mode(False)
+		self.confScroll.add(self.confEntry)
+		self.confEntry.show()
+		self.confBox.pack_start(self.confScroll,expand=True,fill=True,padding=0)
+		
+		# Futur new config interface
 		#self.confScroll=gtk.ScrolledWindow()
-		#self.confScroll.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
-		#self.confScroll.show()
-		#self.confEntry=gtk.TextView()
-		#self.confEntry.set_editable(True)
-		#self.confEntry.set_wrap_mode(False)
-		#self.confScroll.add(self.confEntry)
-		#self.confEntry.show()
+		#self.confScroll.set_policy(gtk.POLICY_NEVER,gtk.POLICY_AUTOMATIC)
 		#self.confBox.pack_start(self.confScroll,expand=True,fill=True,padding=0)
-		self.configMainBox=gtk.VBox(True,0)
-		self.configMainBox.show()
-		for mailConfig in self.core.serverList():
-			print mailConfig
-			self.confServBox=gtk.HBox(False,0)
-			self.confServBox.show()
-			self.confServMod=gtk.Button(stock=gtk.STOCK_EDIT)
-			self.confServMod.connect('clicked',self.editConfig,mailConfig)
-			self.confServMod.show()
-			self.confServLab=gtk.Label("\n<span size='large'>"+self.core.config.get(mailConfig,'user')+"</span>\n<span size='small'>"+self.core.config.get(mailConfig,'server')+"</span>\n")
-			self.confServLab.set_justify(gtk.JUSTIFY_CENTER)
-			self.confServLab.set_use_markup(True)
-			self.confServLab.show()
-			self.confServDel=gtk.Button(stock=gtk.STOCK_DELETE)
-			self.confServDel.show()
-			self.confServBox.pack_start(self.confServLab,expand=True,fill=True,padding=0)
-			self.confServBox.pack_start(self.confServMod,expand=False,fill=False,padding=0)
-			self.confServBox.pack_start(self.confServDel,expand=False,fill=False,padding=0)
-			self.configMainBox.pack_start(self.confServBox,expand=True,fill=True,padding=0)
-		#self.confScroll.add(self.configMainBox)
-		self.confBox.pack_start(self.configMainBox,expand=True,fill=True,padding=0)
+		#self.confScroll.show()
+		#self.configMainBox=gtk.VBox(True,0)
+		#self.configMainBox.show()
+		#for mailConfig in self.core.serverList():
+		#	print mailConfig
+		#	self.confServBox=gtk.HBox(False,0)
+		#	self.confServBox.show()
+		#	self.confServMod=gtk.Button(stock=gtk.STOCK_EDIT)
+		#	self.confServMod.connect('clicked',self.editConfig,mailConfig)
+		#	self.confServMod.show()
+		#	self.confServLab=gtk.Label("\n<span size='large'>"+self.core.config.get(mailConfig,'user')+"</span>\n<span size='small'>"+self.core.config.get(mailConfig,'server')+"</span>\n")
+		#	self.confServLab.set_justify(gtk.JUSTIFY_CENTER)
+		#	self.confServLab.set_use_markup(True)
+		#	self.confServLab.show()
+		#	self.confServDel=gtk.Button(stock=gtk.STOCK_DELETE)
+		#	self.confServDel.show()
+		#	self.confServBox.pack_start(self.confServLab,expand=True,fill=True,padding=0)
+		#	self.confServBox.pack_start(self.confServMod,expand=False,fill=False,padding=0)
+		#	self.confServBox.pack_start(self.confServDel,expand=False,fill=False,padding=0)
+		#	self.configMainBox.pack_start(self.confServBox,expand=True,fill=True,padding=0)
+		#self.confScroll.add_with_viewport(self.configMainBox)
+		#self.confBox.pack_start(self.configMainBox,expand=True,fill=True,padding=0)
 		
 
 		self.confTools=gtk.HBox(True,0)
@@ -450,19 +470,19 @@ class PymailGui:
 		self.modifBox.pack_start(self.modifUser,expand=True,fill=True,padding=0)
 		
 	def getConfig(self,unused):
-		#buffer=self.confEntry.get_buffer()
-		#text=""
+		buffer=self.confEntry.get_buffer()
+		text=""
 		print("Getting Config")
-		#config = open(str(conffile),"r")
-		#while 1:
-		#	line = config.readline()
-		#	if not line:
-		#		break
-		#	else:
-		#		text=text+line
-		#	pass # do something
-		#buffer.set_text(text)
-		#config.close()
+		config = open(str(conffile),"r")
+		while 1:
+			line = config.readline()
+			if not line:
+				break
+			else:
+				text=text+line
+			pass # do something
+		buffer.set_text(text)
+		config.close()
 
 	def setConfig(self,unused):
 		buffer=self.confEntry.get_buffer()
@@ -501,19 +521,65 @@ class PymailGui:
 
 		#+ " from " + unicode(self.mailArray[mailID][2],'iso-8859-1') + " : " + unicode(self.mailArray[mailID][3] ,'iso-8859-1')
 		mail = self.core.getMailBody(self.mailArray[mailID][0], self.mailArray[mailID][1])
+
+		#AD/ Correct the encodage :
+		mail=re.sub(r'&eacute;','e',mail)
+		mail=re.sub(r'&egrave;','e',mail)
+		mail=re.sub(r'&agrave;','a',mail)
+		mail=re.sub(r'&ccedil;','c',mail)
+		mail=re.sub(r'&nbsp;',' ',mail)
+		mail=re.sub(r'&lt;','<',mail)
+		mail=re.sub(r'&gt;','>',mail)
+		mail=re.sub(r'&amp;','&',mail)
+		mail=re.sub(r'&uuml;','u',mail)
+		mail=re.sub(r'&auml;','a',mail)
+		mail=re.sub(r'&ouml;','o',mail)
+
+		#AD/ Replace HTML Balise by Simple Text :
 		
+		#AD/ Delete <a> and show link
+		re.I
+		mail=re.sub(r'<a[^>]*(href=")', '[Lien : ', mail)
+		#AD/ Check before if there is an image in the link (and in the mail)
+		mail=re.sub(r'<img[^>]*(src=")', '[Image : ', mail)
+		mail=re.sub(r'png"[^>]*>', 'png ]', mail)
+		mail=re.sub(r'jpg"[^>]*>', 'jpg ]', mail)
+		mail=re.sub(r'jpeg"[^>]*>', 'jpeg ]', mail)
+		mail=re.sub(r'bmp"[^>]*>', 'bmp ]', mail)
+		mail=re.sub(r'gif"[^>]*>', 'gif ]', mail)
+		mail=re.sub(r'">\[',' [',mail)
+		mail=re.sub(r'</a>',' ]',mail)
+		mail=re.sub(r'"(\s|>)[^<]*</a>', ' ]', mail)
+		#AD/ Create tables :
+		mail=re.sub(r'<table[^>]*>','\n[ Begin of table ]',mail)
+		mail=re.sub(r'<t(r|body|head|foot)[^>]*>','\n_______\n',mail)
+		mail=re.sub(r'<t(d|h)[^>]*>','| ',mail)
+		mail=re.sub(r'</t(d|h)>',' |',mail)
+		mail=re.sub(r'</t(r|body|head|foot)>','\n_______',mail)
+		mail=re.sub(r'</table>','[ End of table ]\n',mail)
+		#AD/ Replace <li> structure by a simple list with '-'
+		mail=re.sub(r'<li[^>]*>', '\t-  ',mail)
+		mail=re.sub(r'</li>', '\n', mail)
+		#AD/ Make lines
+		mail=re.sub(r'<hr[^>]*>','----------',mail)
+		#AD/ Replace <br> and <br/> by \n
+		mail=re.sub(r'<(br)(>|[^>]*)>', '\n', mail)
+		#AD/ Delete all other begin balise
+		mail=re.sub(r'<[^>,^/]*>', '', mail)
+		#AD/ Delete paragraph and title end by double breakline
+		mail=re.sub(r'</(p|h1|h2|h3|h4|h5|h6)>', '\n\n', mail)
+		mail=re.sub(r'</(a|html|li|u|i|ul|b|title|head|body|strong|span|div)>', ' ', mail)
+		buffer=self.mailEntry.get_buffer()
+		buffer.set_text(mail)
 		# To show mail reader at place of mail list:
 		self.pager.remove_page(0)
 		self.pager.insert_page(self.mailViewBox,self.mailReaderLab,0)
 		self.pager.set_current_page(0)
 		self.subjectLabel.set_text("From "+self.mailArray[mailID][2]+"\nSubject: "+self.mailArray[mailID][3])
 		self.subjectLabel.set_use_markup(True)
-		
-		#AD/ Test to use Mozembed :
-		self.mailEntry=gtkmozembed.MozEmbed()
-		self.mailViewBox.pack_start(self.mailEntry,expand=True,fill=True,padding=0)
-		self.mailEntry.show()
-		self.mailEntry.render_data(mail, long(len(mail)), 'file:///', 'text/html')
+		#AD/ For Mozembed use
+		#self.mailEntry.render_data(mail, long(len(mail)),'file:///','text/html')
+
 
 	# This function make a list of all unread mails in a server and display it in readBox of the mail list
 	def displayUnread(self, unreadMails, box, server, label, nbr):
